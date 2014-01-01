@@ -878,7 +878,7 @@ static int mipi_dsi_panel_power(const int on)
 			}
 		}
 
-		rc = regulator_set_voltage(l1_3v, 2900000, 2900000);
+		rc = regulator_set_voltage(l1_3v, 3100000, 3100000);
 		if (rc) {
 			PR_DISP_ERR("%s: error setting l1_3v voltage\n", __func__);
 			return -EINVAL;
