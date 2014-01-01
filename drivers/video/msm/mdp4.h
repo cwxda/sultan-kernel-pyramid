@@ -478,27 +478,6 @@ static inline int mdp4_overlay_borderfill_supported(void)
 	return (mdp_hw_version >= 0x0402030b);
 }
 
-#ifdef CONFIG_FB_MSM_DTV
-int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
-			struct mdp4_overlay_pipe *pipe);
-int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
-			struct mdp4_overlay_pipe *pipe);
-#else
-static inline int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
-			struct mdp4_overlay_pipe *pipe)
-{
-	return 0;
-}
-static inline int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
-			struct mdp4_overlay_pipe *pipe)
-{
-	return 0;
-}
-#endif
-
-void mdp4_dtv_overlay(struct msm_fb_data_type *mfd);
-int mdp4_dtv_on(struct platform_device *pdev);
-int mdp4_dtv_off(struct platform_device *pdev);
 void mdp4_atv_overlay(struct msm_fb_data_type *mfd);
 int mdp4_atv_on(struct platform_device *pdev);
 int mdp4_atv_off(struct platform_device *pdev);
