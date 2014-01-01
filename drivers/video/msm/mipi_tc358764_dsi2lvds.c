@@ -236,9 +236,10 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 	mipi_dsi_buf_init(&d2l_tx_buf);
 	mipi_dsi_buf_init(&d2l_rx_buf);
 
-	/* mutex had been acquried at dsi_on */
+	mutex_lock(&mfd->dma->ov_mutex);
 	len = mipi_dsi_cmds_rx(mfd, &d2l_tx_buf, &d2l_rx_buf,
 			       &cmd_read_reg, len);
+	mutex_unlock(&mfd->dma->ov_mutex);
 
 	data = *(u32 *)d2l_rx_buf.data;
 
@@ -268,8 +269,9 @@ static u32 mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 	payload.addr = reg;
 	payload.data = data;
 
-	/* mutex had been acquried at dsi_on */
+	mutex_lock(&mfd->dma->ov_mutex);
 	mipi_dsi_cmds_tx(mfd, &d2l_tx_buf, &cmd_write_reg, 1);
+	mutex_unlock(&mfd->dma->ov_mutex);
 
 	pr_debug("%s: reg=0x%x. data=0x%x.\n", __func__, reg, data);
 
