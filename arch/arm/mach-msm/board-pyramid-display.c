@@ -890,7 +890,7 @@ static int pyramid_lcd_on(struct platform_device *pdev)
 			PR_DISP_ERR("%s: panel_type is not supported!(%d)\n", __func__, panel_type);
 			break;
 	}
-	mipi_dsi_cmds_tx(mfd, &panel_tx_buf, on_cmds, on_cmds_cnt);
+	mipi_dsi_cmds_tx(&panel_tx_buf, on_cmds, on_cmds_cnt);
 
 	mipi_lcd_on = 1;
 
@@ -916,7 +916,7 @@ static int pyramid_lcd_off(struct platform_device *pdev)
 	off_cmds = novatek_display_off_cmds;
 	off_cmds_cnt = ARRAY_SIZE(novatek_display_off_cmds);
 
-	mipi_dsi_cmds_tx(mfd, &panel_tx_buf, off_cmds, off_cmds_cnt);
+	mipi_dsi_cmds_tx(&panel_tx_buf, off_cmds, off_cmds_cnt);
 
 	mipi_lcd_on = 0;
 
@@ -999,7 +999,7 @@ static void pyramid_set_backlight(struct msm_fb_data_type *mfd)
 
 	mutex_lock(&mfd->dma->ov_mutex);
 
-	mipi_dsi_cmds_tx(mfd, &panel_tx_buf, novatek_cmd_backlight_cmds,
+	mipi_dsi_cmds_tx(&panel_tx_buf, novatek_cmd_backlight_cmds,
 			ARRAY_SIZE(novatek_cmd_backlight_cmds));
 
 	mutex_unlock(&mfd->dma->ov_mutex);

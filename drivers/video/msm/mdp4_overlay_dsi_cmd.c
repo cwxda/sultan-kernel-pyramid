@@ -376,6 +376,9 @@ int mdp4_dsi_cmd_pipe_commit(int cndx, int wait)
 		}
 	}
 
+	/* tx dcs command if had any */
+	mipi_dsi_cmdlist_commit(1);
+
 	mdp4_mixer_stage_commit(mixer);
 
 	pipe = vctrl->base_pipe;
@@ -435,6 +438,7 @@ void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable)
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 		if (vctrl->clk_enabled == 0) {
 			pr_debug("%s: SET_CLK_ON\n", __func__);
+			mipi_dsi_clk_cfg(1);
 			mdp_clk_ctrl(1);
 			vctrl->clk_enabled = 1;
 			vctrl->new_update = 1;
@@ -475,7 +479,9 @@ void mdp4_dsi_cmd_wait4vsync(int cndx)
 	vctrl->wait_vsync_cnt++;
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	wait_for_completion(&vctrl->vsync_comp);
+	if (!wait_for_completion_timeout(
+			&vctrl->vsync_comp, msecs_to_jiffies(100)))
+		pr_err("%s %d  TIMEOUT_\n", __func__, __LINE__);
 	mdp4_stat.wait4vsync0++;
 }
 
@@ -492,8 +498,9 @@ static void mdp4_dsi_cmd_wait4dmap(int cndx)
 
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
-
-	wait_for_completion(&vctrl->dmap_comp);
+	if (!wait_for_completion_timeout(
+			&vctrl->dmap_comp, msecs_to_jiffies(100)))
+		pr_err("%s %d  TIMEOUT_\n", __func__, __LINE__);
 }
 
 static void mdp4_dsi_cmd_wait4ov(int cndx)
@@ -510,7 +517,9 @@ static void mdp4_dsi_cmd_wait4ov(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	wait_for_completion(&vctrl->ov_comp);
+	if (!wait_for_completion_timeout(
+			&vctrl->ov_comp, msecs_to_jiffies(100)))
+		pr_err("%s %d  TIMEOUT_\n", __func__, __LINE__);
 }
 
 /*
@@ -657,7 +666,8 @@ static void clk_ctrl_work(struct work_struct *work)
 		vctrl->clk_control = 0;
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 		/* make sure dsi link is idle */
-		mipi_dsi_mdp_busy_wait(0);
+		mipi_dsi_mdp_busy_wait();
+		mipi_dsi_clk_cfg(0);
 		mdp_clk_ctrl(0);
 		pr_debug("%s: SET_CLK_OFF, pid=%d\n", __func__, current->pid);
 	} else {
@@ -1076,6 +1086,7 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 		vctrl->clk_enabled = 0;
 		vctrl->expire_tick = 0;
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+		mipi_dsi_clk_cfg(0);
 		mdp_clk_ctrl(0);
 		pr_err("%s: Error, SET_CLK_OFF by force\n", __func__);
 	}
@@ -1157,6 +1168,7 @@ static int mdp4_dsi_cmd_clk_check(struct vsycn_ctrl *vctrl)
 
 	if (clk_set_on) {
 		pr_debug("%s: SET_CLK_ON\n", __func__);
+		mipi_dsi_clk_cfg(1);
 		mdp_clk_ctrl(1);
 		vsync_irq_enable(INTR_PRIMARY_RDPTR, MDP_PRIM_RDPTR_TERM);
 	}
