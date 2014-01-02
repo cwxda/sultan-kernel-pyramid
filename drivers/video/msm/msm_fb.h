@@ -224,6 +224,7 @@ int msm_fb_writeback_terminate(struct fb_info *info);
 int msm_fb_detect_client(const char *name);
 int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp);
 void msm_fb_display_on(struct msm_fb_data_type *mfd);
+void mdp_color_enhancement(const struct mdp_table_entry *reg_seq, int size);
 
 #ifdef CONFIG_FB_BACKLIGHT
 void msm_fb_config_backlight(struct msm_fb_data_type *mfd);
