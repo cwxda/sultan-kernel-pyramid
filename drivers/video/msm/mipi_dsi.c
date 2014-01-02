@@ -35,6 +35,8 @@
 #include "mdp.h"
 #include "mdp4.h"
 
+#include <mach/panel_id.h>
+
 u32 dsi_irq;
 u32 esc_byte_ratio;
 
@@ -62,6 +64,12 @@ static struct platform_driver mipi_dsi_driver = {
 };
 
 struct device dsi_dev;
+static atomic_t need_soft_reset = ATOMIC_INIT(0);
+
+void mipi_dsi_reset_set(int reset)
+{
+	atomic_set(&need_soft_reset, !!reset);
+}
 
 static int mipi_dsi_off(struct platform_device *pdev)
 {
@@ -69,10 +77,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct msm_panel_info *pinfo;
 
-	pr_debug("Start of %s....:\n", __func__);
-
-	pr_debug("%s+:\n", __func__);
-
+	pr_info("%s\n",__func__);
 	mfd = platform_get_drvdata(pdev);
 	pinfo = &mfd->panel_info;
 
@@ -81,13 +86,23 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	else
 		down(&mfd->dma->mutex);
 
+	/*
+	 * Description: dsi clock is need to perform shutdown.
+	 * mdp4_dsi_cmd_dma_busy_wait() will enable dsi clock if disabled.
+	 * also, wait until dma (overlay and dmap) finish.
+	 */
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mipi_dsi_prepare_clocks();
-		mipi_dsi_ahb_ctrl(1);
-		mipi_dsi_clk_enable();
-
-		/* make sure dsi_cmd_mdp is idle */
-		mipi_dsi_cmd_mdp_busy();
+		if (board_mfg_mode() == 4) {
+			//Do nothing
+			pr_info("%s : power test\n",__func__);
+		} else if (mdp_rev >= MDP_REV_41) {
+			mipi_dsi_mdp_busy_wait(mfd);
+		} else {
+			mdp3_dsi_cmd_dma_busy_wait(mfd);
+		}
+	} else {
+		/* video mode, wait until fifo cleaned */
+		mipi_dsi_controller_cfg(0);
 	}
 
 	/*
@@ -108,8 +123,11 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	ret = panel_next_off(pdev);
 
-	spin_lock_bh(&dsi_clk_lock);
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(0, 0);
+#endif
 
+	spin_lock_bh(&dsi_clk_lock);
 	mipi_dsi_clk_disable();
 
 	/* disbale dsi engine */
@@ -120,6 +138,10 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mipi_dsi_ahb_ctrl(0);
 	spin_unlock_bh(&dsi_clk_lock);
 
+	/* DSI soft reset */
+	mipi_dsi_sw_reset();
+	mipi_dsi_reset_set(0);
+
 	mipi_dsi_unprepare_clocks();
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
@@ -129,7 +151,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	else
 		up(&mfd->dma->mutex);
 
-	pr_debug("End of %s ....:\n", __func__);
+	pr_debug("%s-:\n", __func__);
 
 	return ret;
 }
@@ -147,8 +169,9 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	u32 ystride, bpp, data;
 	u32 dummy_xres, dummy_yres;
 	int target_type = 0;
+	static bool bfirsttime = true;
 
-	pr_debug("%s+:\n", __func__);
+	pr_info("%s\n",__func__);
 
 	mfd = platform_get_drvdata(pdev);
 	fbi = mfd->fbi;
@@ -169,7 +192,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_phy_ctrl(1);
 
-	if (mdp_rev >= MDP_REV_42 && mipi_dsi_pdata)
+	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
 		target_type = mipi_dsi_pdata->target_type;
 
 	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
@@ -245,7 +268,22 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	}
 
 	mipi_dsi_host_init(mipi);
+///HTC:
+	//Workaround for orise driver IC to exit ULP mode
+	if( bfirsttime && ((panel_type == PANEL_ID_SHR_SHARP_OTM_C2) ||
+	    (panel_type == PANEL_ID_RIR_AUO_OTM_C2)   ||
+	    (panel_type == PANEL_ID_HOY_SONY_OTM)   ||
+	    (panel_type == PANEL_ID_RIR_AUO_OTM_C3) ||
+	    (panel_type == PANEL_ID_RIR_AUO_OTM) ||
+	    (panel_type == PANEL_ID_RIR_SHARP_OTM) ||
+	    (panel_type == PANEL_ID_SHR_SHARP_OTM) )) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x00A8, MIPI_INP(MIPI_DSI_BASE + 0x00A8) | (1<<4)); //enter
+		wmb();
+		MIPI_OUTP(MIPI_DSI_BASE + 0x00A8, MIPI_INP(MIPI_DSI_BASE + 0x00A8) | (1<<12)); //leave
 
+		bfirsttime = false;
+	}
+///:HTC
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
 
@@ -260,8 +298,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	else
 		down(&mfd->dma->mutex);
 
-	if (mfd->op_enable)
-		ret = panel_next_on(pdev);
+	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);
 
@@ -310,17 +347,18 @@ static int mipi_dsi_on(struct platform_device *pdev)
 			}
 			mipi_dsi_set_tear_on(mfd);
 		}
-		mipi_dsi_clk_disable();
-		mipi_dsi_ahb_ctrl(0);
-		mipi_dsi_unprepare_clocks();
 	}
+
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(2, 2);
+#endif
 
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
 		up(&mfd->dma->mutex);
 
-	pr_debug("End of %s....:\n", __func__);
+	pr_debug("%s-:\n", __func__);
 
 	return ret;
 }
@@ -379,7 +417,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		disable_irq(dsi_irq);
 
-		if (mdp_rev >= MDP_REV_42 && mipi_dsi_pdata &&
+		if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata &&
 			mipi_dsi_pdata->target_type == 1) {
 			/* Target type is 1 for device with (De)serializer
 			 * 0x4f00000 is the base for TV Encoder.
@@ -417,7 +455,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		if (mipi_dsi_clk_init(pdev))
 			return -EPERM;
 
-		if (mipi_dsi_pdata->splash_is_enabled &&
+		if (mipi_dsi_pdata && mipi_dsi_pdata->splash_is_enabled &&
 			!mipi_dsi_pdata->splash_is_enabled()) {
 			mipi_dsi_ahb_ctrl(1);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0);
