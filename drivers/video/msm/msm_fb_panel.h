@@ -65,6 +65,7 @@ struct lcd_panel_info {
 	__u32 v_pulse_width;
 	__u32 hw_vsync_mode;
 	__u32 vsync_notifier_period;
+	__u32 blt_ctrl;
 	__u32 rev;
 };
 
@@ -137,17 +138,6 @@ struct mipi_panel_info {
 	char force_clk_lane_hs;
 };
 
-enum lvds_mode {
-	LVDS_SINGLE_CHANNEL_MODE,
-	LVDS_DUAL_CHANNEL_MODE,
-};
-
-struct lvds_panel_info {
-	enum lvds_mode channel_mode;
-	/* Channel swap in dual mode */
-	char channel_swap;
-};
-
 struct msm_panel_info {
 	__u32 xres;
 	__u32 yres;
@@ -167,16 +157,12 @@ struct msm_panel_info {
 	__u32 frame_count;
 	__u32 is_3d_panel;
 	__u32 frame_rate;
-
-	__u32 width;
-	__u32 height;
-	__u32 camera_backlight;
+	__u32 frame_interval;
 
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
 	struct mipi_panel_info mipi;
-	struct lvds_panel_info lvds;
 };
 
 #define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\
@@ -193,11 +179,6 @@ struct msm_fb_panel_data {
 	void (*set_backlight) (struct msm_fb_data_type *);
 
 	/* function entry chain */
-	void (*display_on) (struct msm_fb_data_type *);
-	void (*display_off) (struct msm_fb_data_type *);
-	void (*dimming_on) (struct msm_fb_data_type *);
-	void (*acl_enable) (int on, struct msm_fb_data_type *);
-	void (*set_cabc) (struct msm_fb_data_type *, int mode);
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
 	int (*power_ctrl) (boolean enable);

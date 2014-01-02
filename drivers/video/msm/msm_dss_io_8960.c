@@ -11,7 +11,6 @@
  *
  */
 #include <linux/clk.h>
-#include <mach/clk.h>
 #include "msm_fb.h"
 #include "mdp.h"
 #include "mdp4.h"
@@ -251,28 +250,6 @@ void mipi_dsi_lane_cfg(void)
 		MIPI_OUTP(MIPI_DSI_BASE + ln_offset + 0x18, 0x66);
 		ln_offset += 0x40;
 	}
-///HTC:
-#if defined(CONFIG_MACH_K2_CL) || defined(CONFIG_MACH_K2_PLC_CL) || \
-    defined(CONFIG_MACH_K2_UL) || defined(CONFIG_MACH_K2_U) || defined(CONFIG_MACH_K2_WL)
-	/* DSI1_DSIPHY_LN1 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0340, 0xC0); /* DSI1_DSIPHY_LN1_CFG0 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0344, 0xEF); /* DSI1_DSIPHY_LN1_CFG1 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0358, 0x00); /* DSI1_DSIPHY_LN1_TEST_STR1 */
-	/* DSI1_DSIPHY_LN2 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0380, 0xC0); /* DSI1_DSIPHY_LN2_CFG0 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0384, 0xEF); /* DSI1_DSIPHY_LN2_CFG1 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0398, 0x00); /* DSI1_DSIPHY_LN2_TEST_STR1 */
-
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0400, 0x80); /* DSI1_DSIPHY_LNCK_CFG0 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0404, 0x23); /* DSI1_DSIPHY_LNCK_CFG1 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0408, 0x0); /* DSI1_DSIPHY_LNCK_CFG2 */
-	/* DSI1_DSIPHY_LNCK_TEST_DATAPATH */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x040c, 0x0);
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0414, 0x1); /* DSI1_DSIPHY_LNCK_TEST_STR0 */
-	/* DSI1_DSIPHY_LNCK_TEST_STR1 */
-    MIPI_OUTP(MIPI_DSI_BASE + 0x0418, 0x00);
-#else
-///:HTC
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0400, 0x40); /* DSI1_DSIPHY_LNCK_CFG0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0404, 0x67); /* DSI1_DSIPHY_LNCK_CFG1 */
@@ -282,7 +259,6 @@ void mipi_dsi_lane_cfg(void)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0414, 0x1); /* DSI1_DSIPHY_LNCK_TEST_STR0 */
 	/* DSI1_DSIPHY_LNCK_TEST_STR1 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0418, 0x88);
-#endif
 }
 
 void mipi_dsi_bist_ctrl(void)
@@ -545,7 +521,7 @@ static void mipi_dsi_configure_serdes(void)
 void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 	int target_type)
 {
-	struct mipi_dsi_phy_ctrl *pd=NULL;
+	struct mipi_dsi_phy_ctrl *pd;
 	int i, off;
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x128, 0x0001);/* start phy sw reset */
@@ -561,58 +537,54 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 	MIPI_OUTP(MIPI_DSI_BASE + 0x510, 0x0100);/* regulator_ctrl_4 */
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x4b0, 0x04);/* DSIPHY_LDO_CNTRL */
-	if (panel_info)
-		pd = (panel_info->mipi).dsi_phy_db;
-	if (pd) {
-		off = 0x0480;	/* strength 0 - 2 */
-		for (i = 0; i < 3; i++) {
-			MIPI_OUTP(MIPI_DSI_BASE + off, pd->strength[i]);
-			wmb();
-			off += 4;
-		}
 
-		off = 0x0470;	/* ctrl 0 - 3 */
-		for (i = 0; i < 4; i++) {
-			MIPI_OUTP(MIPI_DSI_BASE + off, pd->ctrl[i]);
-			wmb();
-			off += 4;
-		}
+	pd = (panel_info->mipi).dsi_phy_db;
 
-		off = 0x0500;	/* regulator ctrl 0 - 4 */
-		for (i = 0; i < 5; i++) {
-			MIPI_OUTP(MIPI_DSI_BASE + off, pd->regulator[i]);
-			wmb();
-			off += 4;
-		}
+	off = 0x0480;	/* strength 0 - 2 */
+	for (i = 0; i < 3; i++) {
+		MIPI_OUTP(MIPI_DSI_BASE + off, pd->strength[i]);
+		wmb();
+		off += 4;
+	}
+
+	off = 0x0470;	/* ctrl 0 - 3 */
+	for (i = 0; i < 4; i++) {
+		MIPI_OUTP(MIPI_DSI_BASE + off, pd->ctrl[i]);
+		wmb();
+		off += 4;
+	}
+
+	off = 0x0500;	/* regulator ctrl 0 - 4 */
+	for (i = 0; i < 5; i++) {
+		MIPI_OUTP(MIPI_DSI_BASE + off, pd->regulator[i]);
+		wmb();
+		off += 4;
 	}
 	mipi_dsi_calibration();
 	mipi_dsi_lane_cfg(); /* lane cfgs */
 	mipi_dsi_bist_ctrl(); /* bist ctrl */
 
 	off = 0x0204;	/* pll ctrl 1 - 19, skip 0 */
-	if (pd) {
-		for (i = 1; i < 20; i++) {
-			MIPI_OUTP(MIPI_DSI_BASE + off, pd->pll[i]);
-			wmb();
-			off += 4;
-		}
+	for (i = 1; i < 20; i++) {
+		MIPI_OUTP(MIPI_DSI_BASE + off, pd->pll[i]);
+		wmb();
+		off += 4;
 	}
 
 	if (panel_info)
 		mipi_dsi_phy_pll_config(panel_info->clk_rate);
 
 	/* pll ctrl 0 */
-	if (pd) {
-		MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);
-		wmb();
+	MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);
+	wmb();
 
-		off = 0x0440;	/* phy timing ctrl 0 - 11 */
-		for (i = 0; i < 12; i++) {
-			MIPI_OUTP(MIPI_DSI_BASE + off, pd->timing[i]);
-			wmb();
-			off += 4;
-		}
+	off = 0x0440;	/* phy timing ctrl 0 - 11 */
+	for (i = 0; i < 12; i++) {
+		MIPI_OUTP(MIPI_DSI_BASE + off, pd->timing[i]);
+		wmb();
+		off += 4;
 	}
+
 	if (target_type == 1)
 		mipi_dsi_configure_serdes();
 }
@@ -777,10 +749,6 @@ void hdmi_msm_reset_core(void)
 	hdmi_msm_clk(0);
 	udelay(5);
 	hdmi_msm_clk(1);
-
-	clk_reset(hdmi_msm_state->hdmi_app_clk, CLK_RESET_ASSERT);
-	udelay(20);
-	clk_reset(hdmi_msm_state->hdmi_app_clk, CLK_RESET_DEASSERT);
 }
 
 void hdmi_msm_init_phy(int video_format)
