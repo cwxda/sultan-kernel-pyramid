@@ -386,15 +386,18 @@ enum msm_mdp_hw_revision {
 struct msm_panel_common_pdata {
 	uintptr_t hw_revision_addr;
 	int gpio;
+	bool bl_lock;
+	spinlock_t bl_spinlock;
 	int (*backlight_level)(int level, int max, int min);
 	int (*pmic_backlight)(int level);
+	int (*rotate_panel)(void);
 	int (*panel_num)(void);
 	void (*panel_config_gpio)(int);
 	int (*vga_switch)(int select_vga);
 	int *gpio_num;
-	int (*rgb_format)(void);
-	unsigned char (*shrink_pwm)(int val);
-	u32 mdp_max_clk;
+	int mdp_core_clk_rate;
+	unsigned num_mdp_clk;
+	int *mdp_core_clk_table;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
@@ -404,16 +407,6 @@ struct msm_panel_common_pdata {
 	u32 mem_hid;
 	char cont_splash_enabled;
 	char mdp_iommu_split_domain;
-	int (*writeback_offset)(void);
-	int (*mdp_color_enhance)(void);
-	int (*mdp_gamma)(void);
-	void (*mdp_img_stick_wa)(bool);
-	unsigned long update_interval;
-	atomic_t img_stick_on;
-	struct panel_dcr_info *dcr_panel_pinfo;
-	unsigned int auto_bkl_stat;
-	int (*bkl_enable)(int);
-	int (*acl_enable)(int);
 };
 
 struct lcdc_platform_data {
@@ -423,6 +416,7 @@ struct lcdc_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 #endif
+	int (*lvds_pixel_remap)(void);
 };
 
 struct tvenc_platform_data {
@@ -442,7 +436,6 @@ struct mddi_platform_data {
 struct mipi_dsi_platform_data {
 	int vsync_gpio;
 	int (*dsi_power_save)(int on);
-	int (*esd_fixup)(uint32_t mfd_data);
 	int (*dsi_client_reset)(void);
 	int (*get_lane_config)(void);
 	char (*splash_is_enabled)(void);
@@ -468,8 +461,16 @@ struct mipi_dsi_panel_platform_data {
 	int fpga_3d_config_addr;
 	int *gpio;
 	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
-	void (*dsi_pwm_cfg)(void);
 	char dlane_swap;
+	void (*dsi_pwm_cfg)(void);
+	char enable_wled_bl_ctrl;
+///HTC:
+	unsigned char (*shrink_pwm)(int val);
+///:HTC
+};
+
+struct lvds_panel_platform_data {
+	int *gpio;
 };
 
 struct msm_wfd_platform_data {
@@ -485,19 +486,6 @@ struct msm_fb_platform_data {
 	char prim_panel_name[PANEL_NAME_MAX_LEN];
 	char ext_panel_name[PANEL_NAME_MAX_LEN];
 };
-#define HDMI_VFRMT_640x480p60_4_3 0
-#define HDMI_VFRMT_720x480p60_16_9 2
-#define HDMI_VFRMT_1280x720p60_16_9 3
-#define HDMI_VFRMT_720x576p50_16_9 17
-#define HDMI_VFRMT_1920x1080p24_16_9 31
-#define HDMI_VFRMT_1920x1080p30_16_9 33
-
-typedef struct
-{
-	uint8_t format;
-	uint8_t reg_a3;
-	uint8_t reg_a6;
-}mhl_driving_params;
 
 struct msm_hdmi_platform_data {
 	int irq;
@@ -510,8 +498,23 @@ struct msm_hdmi_platform_data {
 	int (*gpio_config)(int on);
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
-	mhl_driving_params *driving_params;
-	int dirving_params_count;
+	bool is_mhl_enabled;
+};
+
+struct msm_mhl_platform_data {
+	int irq;
+	/* GPIO no. for mhl intr */
+	uint32_t gpio_mhl_int;
+	/* GPIO no. for mhl block reset */
+	uint32_t gpio_mhl_reset;
+	/*
+	 * below gpios are specific to targets
+	 * that have the integrated MHL soln.
+	 */
+	/* GPIO no. for mhl block power */
+	uint32_t gpio_mhl_power;
+	/* GPIO no. for hdmi-mhl mux */
+	uint32_t gpio_hdmi_mhl_mux;
 };
 
 struct msm_i2c_platform_data {
