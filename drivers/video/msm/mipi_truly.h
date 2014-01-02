@@ -8,14 +8,14 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
-#ifndef MIPI_TC358764_DSI2LVDS_H
-#define MIPI_TC358764_DSI2LVDS_H
+#ifndef MIPI_TRULY_H
+#define MIPI_TRULY_H
 
-#define PWM_LEVEL 255
+/* #define MIPI_TRULY_FAKE_PANEL */	/* FAKE PANEL for test */
 
-int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
-	u32 channel_id, u32 panel_id);
-#endif  /* MIPI_TC358764_DSI2LVDS_H */
+int mipi_truly_device_register(struct msm_panel_info *pinfo,
+		u32 channel, u32 panel);
+
+#endif  /* MIPI_TRULY_H */

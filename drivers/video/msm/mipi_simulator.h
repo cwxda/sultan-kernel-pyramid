@@ -8,14 +8,12 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
-#ifndef MIPI_TC358764_DSI2LVDS_H
-#define MIPI_TC358764_DSI2LVDS_H
+#ifndef MIPI_SIMULATOR_H
+#define MIPI_SIMULATOR_H
 
-#define PWM_LEVEL 255
+int mipi_simulator_device_register(struct msm_panel_info *pinfo,
+					u32 channel, u32 panel);
 
-int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
-	u32 channel_id, u32 panel_id);
-#endif  /* MIPI_TC358764_DSI2LVDS_H */
+#endif  /* MIPI_SIMULATOR_H */
