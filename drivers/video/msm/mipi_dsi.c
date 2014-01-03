@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,8 +35,6 @@
 #include "mdp.h"
 #include "mdp4.h"
 
-#include <mach/panel_id.h>
-
 u32 dsi_irq;
 u32 esc_byte_ratio;
 
@@ -64,12 +62,6 @@ static struct platform_driver mipi_dsi_driver = {
 };
 
 struct device dsi_dev;
-static atomic_t need_soft_reset = ATOMIC_INIT(0);
-
-void mipi_dsi_reset_set(int reset)
-{
-	atomic_set(&need_soft_reset, !!reset);
-}
 
 static int mipi_dsi_off(struct platform_device *pdev)
 {
@@ -77,7 +69,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct msm_panel_info *pinfo;
 
-	pr_info("%s\n",__func__);
 	mfd = platform_get_drvdata(pdev);
 	pinfo = &mfd->panel_info;
 
@@ -88,26 +79,13 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	mdp4_overlay_dsi_state_set(ST_DSI_SUSPEND);
 
-	/*
-	 * Description: dsi clock is need to perform shutdown.
-	 * mdp4_dsi_cmd_dma_busy_wait() will enable dsi clock if disabled.
-	 * also, wait until dma (overlay and dmap) finish.
+	/* make sure dsi clk is on so that
+	 * dcs commands can be sent
 	 */
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		if (board_mfg_mode() == 4) {
-			//Do nothing
-			pr_info("%s : power test\n",__func__);
-		} else if (mdp_rev >= MDP_REV_41) {
-			mdp4_dsi_cmd_del_timer();
-			mdp4_dsi_cmd_dma_busy_wait(mfd);
-			mipi_dsi_mdp_busy_wait(mfd);
-		} else {
-			mdp3_dsi_cmd_dma_busy_wait(mfd);
-		}
-	} else {
-		/* video mode, wait until fifo cleaned */
-		mipi_dsi_controller_cfg(0);
-	}
+	mipi_dsi_clk_cfg(1);
+
+	/* make sure dsi_cmd_mdp is idle */
+	mipi_dsi_cmd_mdp_busy();
 
 	/*
 	 * Desctiption: change to DSI_CMD_MODE since it needed to
@@ -142,10 +120,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mipi_dsi_ahb_ctrl(0);
 	spin_unlock_bh(&dsi_clk_lock);
 
-	/* DSI soft reset */
-	mipi_dsi_sw_reset();
-	mipi_dsi_reset_set(0);
-
 	mipi_dsi_unprepare_clocks();
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
@@ -173,9 +147,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	u32 ystride, bpp, data;
 	u32 dummy_xres, dummy_yres;
 	int target_type = 0;
-	static bool bfirsttime = true;
-
-	pr_info("%s\n",__func__);
 
 	mfd = platform_get_drvdata(pdev);
 	fbi = mfd->fbi;
@@ -272,22 +243,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	}
 
 	mipi_dsi_host_init(mipi);
-///HTC:
-	//Workaround for orise driver IC to exit ULP mode
-	if( bfirsttime && ((panel_type == PANEL_ID_SHR_SHARP_OTM_C2) ||
-	    (panel_type == PANEL_ID_RIR_AUO_OTM_C2)   ||
-	    (panel_type == PANEL_ID_HOY_SONY_OTM)   ||
-	    (panel_type == PANEL_ID_RIR_AUO_OTM_C3) ||
-	    (panel_type == PANEL_ID_RIR_AUO_OTM) ||
-	    (panel_type == PANEL_ID_RIR_SHARP_OTM) ||
-	    (panel_type == PANEL_ID_SHR_SHARP_OTM) )) {
-		MIPI_OUTP(MIPI_DSI_BASE + 0x00A8, MIPI_INP(MIPI_DSI_BASE + 0x00A8) | (1<<4)); //enter
-		wmb();
-		MIPI_OUTP(MIPI_DSI_BASE + 0x00A8, MIPI_INP(MIPI_DSI_BASE + 0x00A8) | (1<<12)); //leave
 
-		bfirsttime = false;
-	}
-///:HTC
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
 
@@ -461,7 +417,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		if (mipi_dsi_clk_init(pdev))
 			return -EPERM;
 
-		if (mipi_dsi_pdata && mipi_dsi_pdata->splash_is_enabled &&
+		if (mipi_dsi_pdata->splash_is_enabled &&
 			!mipi_dsi_pdata->splash_is_enabled()) {
 			mipi_dsi_ahb_ctrl(1);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0);
