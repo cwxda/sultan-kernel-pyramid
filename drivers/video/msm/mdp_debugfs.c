@@ -157,6 +157,7 @@ static ssize_t mdp_reg_write(
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	outpdw(MDP_BASE + off, data);
+	wmb();
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n", __func__, off, data);
@@ -195,6 +196,7 @@ static ssize_t mdp_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = inpdw(cp + off);
+			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -437,20 +439,16 @@ static ssize_t mdp_stat_read(
 	len = snprintf(bp, dlen, "frame_push:\n");
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t",
-		       mdp4_stat.pipe[OVERLAY_PIPE_RGB1]);
+	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t", mdp4_stat.pipe[0]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb2:  %08lu\n",
-		       mdp4_stat.pipe[OVERLAY_PIPE_RGB2]);
+	len = snprintf(bp, dlen, "rgb2:  %08lu\n", mdp4_stat.pipe[1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg1:   %08lu\t\t",
-		       mdp4_stat.pipe[OVERLAY_PIPE_VG1]);
+	len = snprintf(bp, dlen, "vg1:   %08lu\t\t", mdp4_stat.pipe[2]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg2:   %08lu\n",
-		       mdp4_stat.pipe[OVERLAY_PIPE_VG2]);
+	len = snprintf(bp, dlen, "vg2:   %08lu\n", mdp4_stat.pipe[3]);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "err_mixer: %08lu\t", mdp4_stat.err_mixer);
@@ -502,31 +500,6 @@ static ssize_t mdp_stat_read(
 
 	len = snprintf(bp, dlen, "mddi: %08lu\n\n",
 					mdp4_stat.blt_mddi);
-	bp += len;
-	dlen -= len;
-
-	len = snprintf(bp, dlen, "busywait1: %08lu\n\n",
-			mdp4_stat.busywait1);
-	bp += len;
-	dlen -= len;
-
-	len = snprintf(bp, dlen, "busywait2: %08lu\n\n",
-			mdp4_stat.busywait2);
-	bp += len;
-	dlen -= len;
-
-	len = snprintf(bp, dlen, "busywait3: %08lu\n\n",
-			mdp4_stat.busywait3);
-	bp += len;
-	dlen -= len;
-
-	len = snprintf(bp, dlen, "dsi_turn_on_clks: %08lu\n\n",
-			mdp4_stat.dsi_turn_on_clks);
-	bp += len;
-	dlen -= len;
-
-	len = snprintf(bp, dlen, "dsi_turn_off_clks: %08lu\n\n",
-			mdp4_stat.dsi_turn_off_clks);
 	bp += len;
 	dlen -= len;
 
@@ -616,6 +589,7 @@ static void mddi_reg_write(int ndx, uint32 off, uint32 data)
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	writel(data, base + off);
+	wmb();
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
@@ -644,6 +618,7 @@ static int mddi_reg_read(int ndx)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	while (reg->name) {
 		data = readl((u32)base + reg->off);
+		rmb();
 		len = snprintf(bp, dlen, "%s:0x%08x\t\t= 0x%08x\n",
 					reg->name, reg->off, data);
 		tot += len;
@@ -1025,6 +1000,7 @@ static ssize_t dbg_reg_write(
 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
 
 	writel(data, dbg_base + off);
+	wmb();
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
 			__func__, (int)(dbg_base+off), (int)data);
@@ -1065,6 +1041,7 @@ static ssize_t dbg_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = readl(cp + off);
+			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -1075,6 +1052,7 @@ static ssize_t dbg_reg_read(
 				break;
 		}
 		data = readl((u32)cp + off);
+		rmb();
 		*bp++ = '\n';
 		--dlen;
 		tot++;
@@ -1206,6 +1184,7 @@ static ssize_t hdmi_reg_write(
 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
 
 	writel(data, base + off);
+	wmb();
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
 			__func__, (int)(base+off), (int)data);
@@ -1246,6 +1225,7 @@ static ssize_t hdmi_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = readl(cp + off);
+			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -1256,6 +1236,7 @@ static ssize_t hdmi_reg_read(
 				break;
 		}
 		data = readl((u32)cp + off);
+		rmb();
 		*bp++ = '\n';
 		--dlen;
 		tot++;

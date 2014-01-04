@@ -54,6 +54,8 @@
 #define PANEL_ID_PYD_SHARP	(0x21 | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 #define PANEL_ID_PYD_AUO_NT	(0x22 | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 
+#define PANEL_NAME_MAX_LEN 30
+
 #define HDMI_PANEL_NAME "hdmi_msm"
 
 static int msm_fb_detect_panel(const char *name)
@@ -274,7 +276,7 @@ static struct lcdc_platform_data dtv_pdata = {
 };
 #endif
 
-struct mdp_table_entry pyd_color_v11[] = {
+struct mdp_reg pyd_color_v11[] = {
 	{0x93400, 0x0222, 0x0},
 	{0x93404, 0xFFE4, 0x0},
 	{0x93408, 0xFFFD, 0x0},
@@ -299,7 +301,7 @@ struct mdp_table_entry pyd_color_v11[] = {
 	{0x90070, 0xCD298008, 0x0},
 };
 
-struct mdp_table_entry pyd_auo_gamma[] = {
+struct mdp_reg pyd_auo_gamma[] = {
 	{0x94800, 0x000000, 0x0},
 	{0x94804, 0x010201, 0x0},
 	{0x94808, 0x020202, 0x0},
@@ -559,7 +561,7 @@ struct mdp_table_entry pyd_auo_gamma[] = {
 	{0x90070, 0x1F, 0x0},
 };
 
-struct mdp_table_entry pyd_sharp_gamma[] = {
+struct mdp_reg pyd_sharp_gamma[] = {
 	{0x94800, 0x000000, 0x0},
 	{0x94804, 0x010101, 0x0},
 	{0x94808, 0x020202, 0x0},
