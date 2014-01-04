@@ -1,7 +1,7 @@
 /* include/linux/msm_mdp.h
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -32,11 +32,8 @@
 #define MSMFB_OVERLAY_SET       _IOWR(MSMFB_IOCTL_MAGIC, 135, \
 						struct mdp_overlay)
 #define MSMFB_OVERLAY_UNSET     _IOW(MSMFB_IOCTL_MAGIC, 136, unsigned int)
-
 #define MSMFB_OVERLAY_PLAY      _IOW(MSMFB_IOCTL_MAGIC, 137, \
 						struct msmfb_overlay_data)
-#define MSMFB_OVERLAY_QUEUE	MSMFB_OVERLAY_PLAY
-
 #define MSMFB_GET_PAGE_PROTECTION _IOR(MSMFB_IOCTL_MAGIC, 138, \
 					struct mdp_page_protection)
 #define MSMFB_SET_PAGE_PROTECTION _IOW(MSMFB_IOCTL_MAGIC, 139, \
@@ -69,12 +66,21 @@
 #define MSMFB_WRITEBACK_TERMINATE _IO(MSMFB_IOCTL_MAGIC, 155)
 #define MSMFB_MDP_PP _IOWR(MSMFB_IOCTL_MAGIC, 156, struct msmfb_mdp_pp)
 
-#define MSMFB_OVERLAY_VSYNC_CTRL  _IOW(MSMFB_IOCTL_MAGIC, 160, unsigned int)
-#define MSMFB_VSYNC_CTRL  _IOW(MSMFB_IOCTL_MAGIC, 161, unsigned int)
+
+
+#define MSMFB_GET_USB_PROJECTOR_INFO _IOR(MSMFB_IOCTL_MAGIC, 301, struct msmfb_usb_projector_info)
+#define MSMFB_SET_USB_PROJECTOR_INFO _IOW(MSMFB_IOCTL_MAGIC, 302, struct msmfb_usb_projector_info)
+
 
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
+
+struct msmfb_usb_projector_info {
+	int usb_offset;
+	int latest_offset;
+};
+
 
 enum {
 	NOTIFY_UPDATE_START,
@@ -105,7 +111,6 @@ enum {
 	MDP_YCRCB_H1V1,   /* YCrCb interleave */
 	MDP_YCBCR_H1V1,   /* YCbCr interleave */
 	MDP_IMGTYPE_LIMIT,
-	MDP_RGB_BORDERFILL,	/* border fill pipe */
 	MDP_BGR_565 = MDP_IMGTYPE2_START,      /* BGR 565 planer */
 	MDP_FB_FORMAT,    /* framebuffer format */
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
@@ -340,9 +345,9 @@ enum {
 };
 
 /*
-mdp_histogram_start_req is used to provide the parameters for
-histogram start request
-*/
+ * mdp_histogram_start_req is used to provide the parameters for
+ * histogram start request
+ */
 
 struct mdp_histogram_start_req {
 	uint32_t block;
@@ -351,14 +356,10 @@ struct mdp_histogram_start_req {
 	uint8_t num_bins;
 };
 
-
 /*
-
-   mdp_histogram_data is used to return the histogram data, once
-   the histogram is done/stopped/cance
-
+ * mdp_histogram_data is used to return the histogram data, once
+ * the histogram is done/stopped/cance
  */
-
 
 struct mdp_histogram_data {
 	uint32_t block;
@@ -398,15 +399,13 @@ struct mdp_csc_cfg_data {
 	struct mdp_csc_cfg csc_data;
 };
 
-#define MDP_PP_OPS_READ 0x2
-#define MDP_PP_OPS_WRITE 0x4
-
 enum {
 	mdp_lut_igc,
 	mdp_lut_pgc,
 	mdp_lut_hist,
 	mdp_lut_max,
 };
+
 
 struct mdp_igc_lut_data {
 	uint32_t block;
@@ -440,6 +439,7 @@ struct mdp_hist_lut_data {
 	uint32_t *data;
 };
 
+
 struct mdp_lut_cfg_data {
 	uint32_t lut_type;
 	union {
@@ -447,11 +447,6 @@ struct mdp_lut_cfg_data {
 		struct mdp_pgc_lut_data pgc_lut_data;
 		struct mdp_hist_lut_data hist_lut_data;
 	} data;
-};
-
-struct mdp_bl_scale_data {
-	uint32_t min_lvl;
-	uint32_t scale;
 };
 
 struct mdp_qseed_cfg_data {
@@ -462,13 +457,17 @@ struct mdp_qseed_cfg_data {
 	uint32_t *data;
 };
 
+struct mdp_bl_scale_data {
+       uint32_t min_lvl;
+       uint32_t scale;
+};
 
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
 	mdp_op_lut_cfg,
-	mdp_bl_scale_cfg,
 	mdp_op_qseed_cfg,
+	mdp_bl_scale_cfg,
 	mdp_op_max,
 };
 
@@ -478,8 +477,8 @@ struct msmfb_mdp_pp {
 		struct mdp_pcc_cfg_data pcc_cfg_data;
 		struct mdp_csc_cfg_data csc_cfg_data;
 		struct mdp_lut_cfg_data lut_cfg_data;
-		struct mdp_bl_scale_data bl_scale_data;
 		struct mdp_qseed_cfg_data qseed_cfg_data;
+		struct mdp_bl_scale_data bl_scale_data;
 	} data;
 };
 

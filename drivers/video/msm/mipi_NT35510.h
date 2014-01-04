@@ -11,11 +11,10 @@
  *
  */
 
+#ifndef MIPI_NT35510_H
+#define MIPI_NT35510_H
 
-#ifndef MIPI_ORISE_H
-#define MIPI_ORISE_H
-
-int mipi_orise_device_register(struct msm_panel_info *pinfo,
+int mipi_nt35510_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
 
-#endif  /* MIPI_ORISE_H */
+#endif  /* MIPI_NT35510_H */

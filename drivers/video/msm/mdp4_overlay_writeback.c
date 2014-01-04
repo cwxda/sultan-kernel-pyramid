@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,20 +174,15 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	pipe->dst_y = 0;
 	pipe->dst_x = 0;
 
-	mdp4_overlay_mdp_pipe_req(pipe, mfd);
-	if (mfd->map_buffer) {
-		pipe->srcp0_addr = (unsigned int)mfd->map_buffer->iova[0] + \
-			buf_offset;
-		pr_debug("start 0x%lx srcp0_addr 0x%x\n", mfd->
-			map_buffer->iova[0], pipe->srcp0_addr);
-	} else {
+	if (mfd->display_iova)
+		pipe->srcp0_addr = mfd->display_iova + buf_offset;
+	else
 		pipe->srcp0_addr = (uint32)(buf + buf_offset);
-	}
 
-	mdp4_mixer_stage_up(pipe, 0);
+	mdp4_mixer_stage_up(pipe);
 
 	mdp4_overlayproc_cfg(pipe);
-	mdp4_mixer_stage_commit(pipe->mixer_num);
+
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
@@ -279,12 +274,9 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 
 	writeback_pipe->ov_blt_addr = (ulong) (node ? node->addr : NULL);
 
-	/* free previous iommu at freelist back to pool */
-	mdp4_overlay_iommu_unmap_freelist(writeback_pipe->mixer_num);
-
 	if (!writeback_pipe->ov_blt_addr) {
 		pr_err("%s: no writeback buffer 0x%x, %p\n", __func__,
-				(unsigned int)writeback_pipe->ov_blt_addr, node);
+			(unsigned int)writeback_pipe->ov_blt_addr, node);
 		mutex_unlock(&mfd->unregister_mutex);
 		return;
 	}
@@ -294,12 +286,7 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 
 	pr_debug("%s: pid=%d\n", __func__, current->pid);
 
-	mdp4_mixer_stage_commit(pipe->mixer_num);
-
 	mdp4_writeback_overlay_kickoff(mfd, pipe);
-
-	/* move current committed iommu to freelist */
-	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 
 	mutex_lock(&mfd->writeback_mutex);
 	list_add_tail(&node->active_entry, &mfd->writeback_busy_queue);
@@ -312,7 +299,6 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 void mdp4_writeback_kickoff_ui(struct msm_fb_data_type *mfd,
 		struct mdp4_overlay_pipe *pipe)
 {
-	mdp4_mixer_stage_commit(pipe->mixer_num);
 
 	pr_debug("%s: pid=%d\n", __func__, current->pid);
 	mdp4_writeback_overlay_kickoff(mfd, pipe);
@@ -404,6 +390,8 @@ static struct msmfb_writeback_data_list *get_if_registered(
 {
 	struct msmfb_writeback_data_list *temp;
 	bool found = false;
+	int domain;
+
 	if (!list_empty(&mfd->writeback_register_queue)) {
 		list_for_each_entry(temp,
 				&mfd->writeback_register_queue,
@@ -434,9 +422,14 @@ static struct msmfb_writeback_data_list *get_if_registered(
 				goto register_ion_fail;
 			}
 
+			if (mdp_iommu_split_domain)
+				domain = DISPLAY_WRITE_DOMAIN;
+			else
+				domain = DISPLAY_READ_DOMAIN;
+
 			if (ion_map_iommu(mfd->iclient,
 					  srcp_ihdl,
-					  DISPLAY_DOMAIN,
+					  domain,
 					  GEN_POOL,
 					  SZ_4K,
 					  0,
@@ -515,7 +508,7 @@ int mdp4_writeback_dequeue_buffer(struct fb_info *info, struct msmfb_data *data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct msmfb_writeback_data_list *node = NULL;
-	int rc = 0;
+	int rc = 0, domain;
 
 	rc = wait_event_interruptible(mfd->wait_q, is_buffer_ready(mfd));
 	if (rc) {
@@ -537,9 +530,14 @@ int mdp4_writeback_dequeue_buffer(struct fb_info *info, struct msmfb_data *data)
 		memcpy(data, &node->buf_info, sizeof(struct msmfb_data));
 		if (!data->iova)
 			if (mfd->iclient && node->ihdl) {
+				if (mdp_iommu_split_domain)
+					domain = DISPLAY_WRITE_DOMAIN;
+				else
+					domain = DISPLAY_READ_DOMAIN;
+
 				ion_unmap_iommu(mfd->iclient,
 						node->ihdl,
-						DISPLAY_DOMAIN,
+						domain,
 						GEN_POOL);
 				ion_free(mfd->iclient,
 					 node->ihdl);

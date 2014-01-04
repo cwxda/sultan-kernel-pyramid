@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,19 +72,6 @@ static struct clk *mdp_vsync_clk;
 static struct msm_fb_data_type *vsync_mfd;
 static unsigned char timer_shutdown_flag;
 static uint32 vsync_cnt_cfg;
-
-
-void vsync_clk_prepare_enable(void)
-{
-	if (mdp_vsync_clk)
-		clk_prepare_enable(mdp_vsync_clk);
-}
-
-void vsync_clk_disable_unprepare(void)
-{
-	if (mdp_vsync_clk)
-		clk_disable_unprepare(mdp_vsync_clk);
-}
 
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd)
 {

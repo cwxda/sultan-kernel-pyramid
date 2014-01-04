@@ -11,11 +11,10 @@
  *
  */
 
+#ifndef MIPI_TRULY_H
+#define MIPI_TRULY_H
 
-#ifndef MIPI_ORISE_H
-#define MIPI_ORISE_H
-
-int mipi_orise_device_register(struct msm_panel_info *pinfo,
+int mipi_truly_tft540960_1_e_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
 
-#endif  /* MIPI_ORISE_H */
+#endif  /* MIPI_TRULY_H */
