@@ -114,8 +114,8 @@ void mdp_vsync_clk_enable(void)
 				hr_msleep(1);
 			}
 		}
-#endif /* HTC_CSP_END */
 	}
+#endif /* HTC_CSP_END */
 }
 
 void mdp_vsync_clk_disable(void)

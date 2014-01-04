@@ -411,7 +411,6 @@ struct msm_panel_common_pdata {
 	struct panel_dcr_info *dcr_panel_pinfo;
 	unsigned int auto_bkl_stat;
 	int (*bkl_enable)(int);
-	char cont_splash_enabled;
 #ifdef CONFIG_FB_MSM8960
 	int (*acl_enable)(int);
 #else
