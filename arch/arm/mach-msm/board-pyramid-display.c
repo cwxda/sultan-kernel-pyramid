@@ -832,10 +832,10 @@ int pyramid_mdp_gamma(void)
 }
 
 static int mdp_core_clk_rate_table[] = {
-	59080000,
-	128000000,
-	160000000,
-	200000000,
+	266667000,
+	266667000,
+	266667000,
+	266667000,
 };
 
 static struct msm_panel_common_pdata mdp_pdata = {
