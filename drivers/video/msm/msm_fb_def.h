@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,7 +93,7 @@ typedef unsigned int boolean;
 #elif defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888)
 #define MSMFB_DEFAULT_TYPE MDP_RGBA_8888
 #else
-#define MSMFB_DEFAULT_TYPE MDP_RGBA_8888
+#define MSMFB_DEFAULT_TYPE MDP_RGB_565
 #endif
 
 #define outp32(addr, val) writel(val, addr)

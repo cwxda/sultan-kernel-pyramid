@@ -54,8 +54,6 @@
 #define PANEL_ID_PYD_SHARP	(0x21 | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 #define PANEL_ID_PYD_AUO_NT	(0x22 | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 
-#define PANEL_NAME_MAX_LEN 30
-
 #define HDMI_PANEL_NAME "hdmi_msm"
 
 static int msm_fb_detect_panel(const char *name)
@@ -276,6 +274,7 @@ static struct lcdc_platform_data dtv_pdata = {
 };
 #endif
 
+/*
 struct mdp_reg pyd_color_v11[] = {
 	{0x93400, 0x0222, 0x0},
 	{0x93404, 0xFFE4, 0x0},
@@ -832,16 +831,26 @@ int pyramid_mdp_gamma(void)
 
 	return 0;
 }
+*/
+
+static int mdp_core_clk_rate_table[] = {
+	59080000,
+	128000000,
+	160000000,
+	200000000,
+};
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = GPIO_LCD_TE,
 	.mdp_core_clk_rate = 266667000,
+	.mdp_core_clk_table = mdp_core_clk_rate_table,
+	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_41,
-	.mem_hid = BIT(ION_CP_MM_HEAP_ID),
-	.mdp_gamma = pyramid_mdp_gamma,
+	.mem_hid = BIT(ION_CP_WB_HEAP_ID),
+	//.mdp_gamma = pyramid_mdp_gamma,
 };
 
 void __init pyramid_mdp_writeback(struct memtype_reserve* reserve_table)
@@ -1559,9 +1568,12 @@ static void pyramid_set_backlight(struct msm_fb_data_type *mfd)
 
 	mutex_lock(&mfd->dma->ov_mutex);
 
-	if (mfd->panel_info.type == MIPI_CMD_PANEL)
+	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
+		mdp4_dsi_cmd_dma_busy_wait(mfd);
+		mdp4_dsi_blt_dmap_busy_wait(mfd);
 		mipi_dsi_mdp_busy_wait(mfd);
-	
+	}
+
 	mipi_dsi_cmds_tx(mfd, &panel_tx_buf, novatek_cmd_backlight_cmds,
 			ARRAY_SIZE(novatek_cmd_backlight_cmds));
 	
@@ -1611,7 +1623,7 @@ static int mipi_pyramid_device_register(const char* dev_name, struct msm_panel_i
 
 	ch_used[channel] = TRUE;
 
-	pdev = platform_device_alloc("mipi_novatek", (panel << 8)|channel);
+	pdev = platform_device_alloc(dev_name, (panel << 8)|channel);
 	if (!pdev)
 		return -ENOMEM;
 
@@ -1671,7 +1683,7 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.bl_max = 255;
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
-	pinfo.clk_rate = 528000000;
+	pinfo.clk_rate = 482000000;
 	pinfo.lcd.vsync_enable = TRUE;
 	pinfo.lcd.hw_vsync_mode = TRUE;
 	pinfo.lcd.refx100 = 6096;
@@ -1684,7 +1696,7 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.mipi.t_clk_post = 0x0a;
 	pinfo.mipi.t_clk_pre = 0x1e;
 	pinfo.mipi.stream = 0;
-	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;
+	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.te_sel = 1;
 	pinfo.mipi.interleave_max = 1;

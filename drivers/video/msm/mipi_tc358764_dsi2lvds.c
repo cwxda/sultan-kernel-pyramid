@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,8 +186,9 @@
 #define DEBUG01		0x05A4	/* LVDS Data */
 
 /* PWM */
-#define PWM_FREQ_HZ	(66*1000)	/* 66 KHZ */
-#define PWM_LEVEL 15
+static u32 d2l_pwm_freq_hz = (3.921*1000);
+
+#define PWM_FREQ_HZ	(d2l_pwm_freq_hz)
 #define PWM_PERIOD_USEC (USEC_PER_SEC / PWM_FREQ_HZ)
 #define PWM_DUTY_LEVEL (PWM_PERIOD_USEC / PWM_LEVEL)
 
@@ -236,10 +237,9 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 	mipi_dsi_buf_init(&d2l_tx_buf);
 	mipi_dsi_buf_init(&d2l_rx_buf);
 
-	mutex_lock(&mfd->dma->ov_mutex);
+	/* mutex had been acquried at dsi_on */
 	len = mipi_dsi_cmds_rx(mfd, &d2l_tx_buf, &d2l_rx_buf,
 			       &cmd_read_reg, len);
-	mutex_unlock(&mfd->dma->ov_mutex);
 
 	data = *(u32 *)d2l_rx_buf.data;
 
@@ -269,9 +269,8 @@ static u32 mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 	payload.addr = reg;
 	payload.data = data;
 
-	mutex_lock(&mfd->dma->ov_mutex);
+	/* mutex had been acquried at dsi_on */
 	mipi_dsi_cmds_tx(mfd, &d2l_tx_buf, &cmd_write_reg, 1);
-	mutex_unlock(&mfd->dma->ov_mutex);
 
 	pr_debug("%s: reg=0x%x. data=0x%x.\n", __func__, reg, data);
 
@@ -450,6 +449,8 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 	mipi_d2l_write_reg(mfd, GPIOC, d2l_gpio_out_mask);
 	/* Set GPIOs: gpio#4=U/D=0 , gpio#3=L/R=1 , gpio#2,1=CABC=0. */
 	mipi_d2l_write_reg(mfd, GPIOO, d2l_gpio_out_val);
+
+	d2l_pwm_freq_hz = (3.921*1000);
 
 	if (bl_level == 0)
 		bl_level = PWM_LEVEL * 2 / 3 ; /* Default ON value */

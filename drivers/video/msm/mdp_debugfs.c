@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,7 +157,6 @@ static ssize_t mdp_reg_write(
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	outpdw(MDP_BASE + off, data);
-	wmb();
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n", __func__, off, data);
@@ -196,7 +195,6 @@ static ssize_t mdp_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = inpdw(cp + off);
-			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -439,16 +437,20 @@ static ssize_t mdp_stat_read(
 	len = snprintf(bp, dlen, "frame_push:\n");
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t", mdp4_stat.pipe[0]);
+	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t",
+		       mdp4_stat.pipe[OVERLAY_PIPE_RGB1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb2:  %08lu\n", mdp4_stat.pipe[1]);
+	len = snprintf(bp, dlen, "rgb2:  %08lu\n",
+		       mdp4_stat.pipe[OVERLAY_PIPE_RGB2]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg1:   %08lu\t\t", mdp4_stat.pipe[2]);
+	len = snprintf(bp, dlen, "vg1:   %08lu\t\t",
+		       mdp4_stat.pipe[OVERLAY_PIPE_VG1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg2:   %08lu\n", mdp4_stat.pipe[3]);
+	len = snprintf(bp, dlen, "vg2:   %08lu\n",
+		       mdp4_stat.pipe[OVERLAY_PIPE_VG2]);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "err_mixer: %08lu\t", mdp4_stat.err_mixer);
@@ -589,7 +591,6 @@ static void mddi_reg_write(int ndx, uint32 off, uint32 data)
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	writel(data, base + off);
-	wmb();
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
@@ -618,7 +619,6 @@ static int mddi_reg_read(int ndx)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	while (reg->name) {
 		data = readl((u32)base + reg->off);
-		rmb();
 		len = snprintf(bp, dlen, "%s:0x%08x\t\t= 0x%08x\n",
 					reg->name, reg->off, data);
 		tot += len;
@@ -1000,7 +1000,6 @@ static ssize_t dbg_reg_write(
 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
 
 	writel(data, dbg_base + off);
-	wmb();
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
 			__func__, (int)(dbg_base+off), (int)data);
@@ -1041,7 +1040,6 @@ static ssize_t dbg_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = readl(cp + off);
-			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -1052,7 +1050,6 @@ static ssize_t dbg_reg_read(
 				break;
 		}
 		data = readl((u32)cp + off);
-		rmb();
 		*bp++ = '\n';
 		--dlen;
 		tot++;
@@ -1077,6 +1074,125 @@ static const struct file_operations dbg_reg_fops = {
 	.release = dbg_release,
 	.read = dbg_reg_read,
 	.write = dbg_reg_write,
+};
+
+u32 dbg_force_ov0_blt;
+u32 dbg_force_ov1_blt;
+
+static ssize_t dbg_force_ov0_blt_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos) {
+	int len;
+
+	if (*ppos)
+		return 0;
+
+	len = snprintf(debug_buf, sizeof(debug_buf),
+		       "%d\n", dbg_force_ov0_blt);
+
+	if (len < 0)
+		return 0;
+
+	if (copy_to_user(buff, debug_buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+
+	return len;
+}
+
+static ssize_t dbg_force_ov0_blt_write(
+	struct file *file,
+	const char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	u32 cnt;
+
+	if (count >= sizeof(debug_buf))
+		return -EFAULT;
+
+	if (copy_from_user(debug_buf, buff, count))
+		return -EFAULT;
+
+	debug_buf[count] = 0;	/* end of string */
+
+	cnt = sscanf(debug_buf, "%d", &dbg_force_ov0_blt);
+
+	if (dbg_force_ov0_blt)
+		dbg_force_ov0_blt = 1;
+
+	pr_info("%s: dbg_force_ov0_blt = %d\n",
+		__func__, dbg_force_ov0_blt);
+
+	return count;
+}
+
+static const struct file_operations dbg_force_ov0_blt_fops = {
+	.open = dbg_open,
+	.release = dbg_release,
+	.read = dbg_force_ov0_blt_read,
+	.write = dbg_force_ov0_blt_write,
+};
+
+static ssize_t dbg_force_ov1_blt_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos) {
+	int len;
+
+	if (*ppos)
+		return 0;
+
+	len = snprintf(debug_buf, sizeof(debug_buf),
+		       "%d\n", dbg_force_ov1_blt);
+
+	if (len < 0)
+		return 0;
+
+	if (copy_to_user(buff, debug_buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+
+	return len;
+}
+
+static ssize_t dbg_force_ov1_blt_write(
+	struct file *file,
+	const char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	u32 cnt;
+
+	if (count >= sizeof(debug_buf))
+		return -EFAULT;
+
+	if (copy_from_user(debug_buf, buff, count))
+		return -EFAULT;
+
+	debug_buf[count] = 0;	/* end of string */
+
+	cnt = sscanf(debug_buf, "%d", &dbg_force_ov1_blt);
+
+	if (dbg_force_ov1_blt)
+		dbg_force_ov1_blt = 1;
+
+	pr_info("%s: dbg_force_ov1_blt = %d\n",
+		__func__, dbg_force_ov1_blt);
+
+	return count;
+}
+
+static const struct file_operations dbg_force_ov1_blt_fops = {
+	.open = dbg_open,
+	.release = dbg_release,
+	.read = dbg_force_ov1_blt_read,
+	.write = dbg_force_ov1_blt_write,
 };
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -1184,7 +1300,6 @@ static ssize_t hdmi_reg_write(
 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
 
 	writel(data, base + off);
-	wmb();
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
 			__func__, (int)(base+off), (int)data);
@@ -1225,7 +1340,6 @@ static ssize_t hdmi_reg_read(
 		i = 0;
 		while (i++ < 4) {
 			data = readl(cp + off);
-			rmb();
 			len = snprintf(bp, dlen, "%08x ", data);
 			tot += len;
 			bp += len;
@@ -1236,7 +1350,6 @@ static ssize_t hdmi_reg_read(
 				break;
 		}
 		data = readl((u32)cp + off);
-		rmb();
 		*bp++ = '\n';
 		--dlen;
 		tot++;
@@ -1301,6 +1414,22 @@ int mdp_debugfs_init(void)
 		return -1;
 	}
 #endif
+
+	if (debugfs_create_file("force_ov0_blt", 0644, dent, 0,
+				&dbg_force_ov0_blt_fops)
+			== NULL) {
+		pr_err("%s(%d): debugfs_create_file: debug fail\n",
+			__FILE__, __LINE__);
+		return -EFAULT;
+	}
+
+	if (debugfs_create_file("force_ov1_blt", 0644, dent, 0,
+				&dbg_force_ov1_blt_fops)
+			== NULL) {
+		pr_err("%s(%d): debugfs_create_file: debug fail\n",
+			__FILE__, __LINE__);
+		return -EFAULT;
+	}
 
 	dent = debugfs_create_dir("mddi", NULL);
 

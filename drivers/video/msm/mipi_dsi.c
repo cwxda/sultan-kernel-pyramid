@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,6 @@
 #include "mipi_dsi.h"
 #include "mdp.h"
 #include "mdp4.h"
-#include <mach/debug_display.h>
 
 u32 dsi_irq;
 
@@ -51,7 +50,6 @@ static int pdev_list_cnt;
 static struct mipi_dsi_platform_data *mipi_dsi_pdata;
 
 static int vsync_gpio = -1;
-extern int mdp4_dsi_clock_off(void);
 
 static struct platform_driver mipi_dsi_driver = {
 	.probe = mipi_dsi_probe,
@@ -64,25 +62,12 @@ static struct platform_driver mipi_dsi_driver = {
 
 struct device dsi_dev;
 
-atomic_t need_soft_reset = ATOMIC_INIT(0);
-int mipi_dsi_reset_read(void)
-{
-	return atomic_read(&need_soft_reset);
-}
-
-void mipi_dsi_reset_set(int reset)
-{
-	atomic_set(&need_soft_reset, !!reset);
-}
-
 static int mipi_dsi_off(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
 	struct msm_panel_info *pinfo;
-	uint32_t vsync_gpio_sleep_cfg = GPIO_CFG(0, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA);
 
-	PR_DISP_INFO("%s+ \n", __func__);
 	mfd = platform_get_drvdata(pdev);
 	pinfo = &mfd->panel_info;
 
@@ -106,6 +91,9 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		} else {
 			mdp3_dsi_cmd_dma_busy_wait(mfd);
 		}
+	} else {
+		/* video mode, wait until fifo cleaned */
+		mipi_dsi_controller_cfg(0);
 	}
 
 	/*
@@ -116,12 +104,10 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
-#if 1
 			if (pinfo->lcd.hw_vsync_mode && vsync_gpio >= 0) {
 				if (MDP_REV_303 != mdp_rev)
 					gpio_free(vsync_gpio);
 			}
-#endif
 			mipi_dsi_set_tear_off(mfd);
 		}
 	}
@@ -149,22 +135,12 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
 
-	/* Config gpio for gpio table sleep mode */
-	gpio_tlmm_config(vsync_gpio_sleep_cfg, GPIO_CFG_ENABLE);
-
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
 		up(&mfd->dma->mutex);
 
-	if (atomic_read(&need_soft_reset) == 1) {
-		/* DSI soft reset */
-		mipi_dsi_sw_reset();
-		atomic_set(&need_soft_reset, 0);
-	}
-
-	mdp4_dsi_clock_off();
-	PR_DISP_INFO("%s-:\n", __func__);
+	pr_debug("%s-:\n", __func__);
 
 	return ret;
 }
@@ -188,10 +164,10 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	var = &fbi->var;
 	pinfo = &mfd->panel_info;
 
-	PR_DISP_INFO("%s+\n", __func__);
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
 
+	cont_splash_clk_ctrl();
 	local_bh_disable();
 	mipi_dsi_ahb_ctrl(1);
 	local_bh_enable();
@@ -302,7 +278,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		if (pinfo->lcd.vsync_enable) {
 			if (pinfo->lcd.hw_vsync_mode && vsync_gpio >= 0) {
 				if (mdp_rev >= MDP_REV_41) {
-#if 1
 					if (gpio_request(vsync_gpio,
 						"MDP_VSYNC") == 0)
 						gpio_direction_input(
@@ -311,7 +286,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 						pr_err("%s: unable to \
 							request gpio=%d\n",
 							__func__, vsync_gpio);
-#endif
 				} else if (mdp_rev == MDP_REV_303) {
 					if (!tlmm_settings && gpio_request(
 						vsync_gpio, "MDP_VSYNC") == 0) {
@@ -358,7 +332,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	else
 		up(&mfd->dma->mutex);
 
-	PR_DISP_INFO("%s-:\n", __func__);
+	pr_debug("%s-:\n", __func__);
 
 	return ret;
 }
@@ -380,7 +354,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 	resource_size_t size ;
 
-	if ((pdev->id == 0) && (pdev->num_resources >= 0)) {
+	if ((pdev->id == 1) && (pdev->num_resources >= 0)) {
 		mipi_dsi_pdata = pdev->dev.platform_data;
 
 		size =  resource_size(&pdev->resource[0]);
@@ -457,7 +431,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	mipi_dsi_clk_init(&pdev->dev);
+	mipi_dsi_clk_init(pdev);
 
 	if (!mipi_dsi_resource_initialized)
 		return -EPERM;
@@ -584,11 +558,6 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		}
 	}
 	pll_divider_config.clk_rate = mfd->panel_info.clk_rate;
-
-	if(mfd->panel_info.pll_pref_div_ratio)
-		pll_divider_config.pref_div_ratio = mfd->panel_info.pll_pref_div_ratio;
-	else
-		pll_divider_config.pref_div_ratio = 27;
 
 	rc = mipi_dsi_clk_div_config(bpp, lanes, &dsi_pclk_rate);
 	if (rc)
