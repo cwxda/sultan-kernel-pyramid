@@ -1692,7 +1692,7 @@ static struct resource msm_mipi_dsi_resources[] = {
 
 static struct platform_device msm_mipi_dsi_device = {
 	.name   = "mipi_dsi",
-	.id     = 1,
+	.id     = 0,
 	.num_resources  = ARRAY_SIZE(msm_mipi_dsi_resources),
 	.resource       = msm_mipi_dsi_resources,
 };

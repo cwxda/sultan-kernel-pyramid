@@ -354,7 +354,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 	resource_size_t size ;
 
-	if ((pdev->id == 1) && (pdev->num_resources >= 0)) {
+	if ((pdev->id == 0) && (pdev->num_resources >= 0)) {
 		mipi_dsi_pdata = pdev->dev.platform_data;
 
 		size =  resource_size(&pdev->resource[0]);
